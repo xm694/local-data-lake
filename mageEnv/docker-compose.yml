@@ -1,0 +1,59 @@
+version: '3'
+
+services:
+  mage:
+    image: mageai/mageai:latest
+    container_name: mage
+    command: mage start ${PROJECT_NAME}
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      USER_CODE_PATH: /home/src/${PROJECT_NAME}
+      POSTGRES_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      USE_POSTGRES: ${USE_POSTGRES}
+      PYTHONPATH: /home/src/${PROJECT_NAME}
+      # MinIO configuration
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL}
+      # Iceberg configuration
+      ICEBERG_DATABASE: ${ICEBERG_DATABASE}
+      ICEBERG_TABLE: ${ICEBERG_TABLE}
+    ports:
+      - ${SERVER_PORT}:${SERVER_PORT}
+    volumes:
+      - .:/home/src/
+    depends_on:
+      - postgres
+    restart: on-failure:5
+    networks:
+      - mage-net
+      - local-pipeline-network
+  
+  # --- Database ---
+  postgres:
+    image: postgres:14
+    container_name: mage_postgres
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    restart: on-failure:5
+    networks:
+      - mage-net
+
+networks:
+  mage-net:
+    name: mage-net
+  local-pipeline-network:
+    external: true
